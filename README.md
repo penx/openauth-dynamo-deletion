@@ -23,6 +23,23 @@ MemoryStorage  replay: 400, rotated token after replay: 400  (revoked, as expect
 DynamoStorage  replay: 400, rotated token after replay: 200  (NOT revoked: bug)
 ```
 
+To see the DynamoDB requests for refresh tokens, with the `\x1f` separator
+shown as `<1f>`:
+
+```bash
+npm run repro -- --log
+```
+
+```
+  Query      pk "oauth:refresh<1f>user:01d9ea42fb08b3d2" -> 2 items
+  DeleteItem pk "oauth:refreshuser:01d9ea42fb08b3d2", sk "5d8ca420-46d4-4e33-8bdf-93806bc1433f"
+  DeleteItem pk "oauth:refreshuser:01d9ea42fb08b3d2", sk "b6636f0d-4633-4ef5-aeb2-54512a66c187"
+DynamoStorage  replay: 400, rotated token after replay: 200  (NOT revoked: bug)
+```
+
+The query finds both refresh tokens under `oauth:refresh<1f>user:…`, but the
+deletes target `oauth:refreshuser:…`, which doesn't exist.
+
 ## Cause
 
 On reuse, `auth.invalidate(subject)` scans `["oauth:refresh", subject]` and
@@ -34,8 +51,8 @@ passes each returned key to `Storage.remove`:
 - So the `DeleteItem` key is `"oauth:refresh" + subject`, which doesn't exist,
   and nothing is deleted.
 
-`MemoryStorage.scan` yields `splitKey(key)`, the original segments, so it
-isn't affected.
+`MemoryStorage.scan` and `CloudflareStorage.scan` both yield `splitKey(key)`,
+the original segments, so they aren't affected.
 
 ## Possible fix
 

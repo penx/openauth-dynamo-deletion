@@ -17,6 +17,27 @@ Object.assign(process.env, {
   AWS_SECRET_ACCESS_KEY: "local",
 });
 
+// `npm run repro -- --log` prints the DynamoDB requests for refresh tokens,
+// with the \x1f separator shown as <1f>.
+if (process.argv.includes("--log")) {
+  const fetch = globalThis.fetch;
+  const show = (s) => JSON.stringify(s).replaceAll("\\u001f", "<1f>");
+  globalThis.fetch = async (input, init) => {
+    const req = new Request(input, init);
+    const action = req.headers.get("x-amz-target")?.split(".")[1];
+    const body = action ? JSON.parse(await req.clone().text()) : undefined;
+    const res = await fetch(req);
+    if (action === "Query" && body.ExpressionAttributeValues[":pk"].S.startsWith("oauth:refresh")) {
+      const { Items } = await res.clone().json();
+      console.log(`  Query      pk ${show(body.ExpressionAttributeValues[":pk"].S)} -> ${Items.length} items`);
+    }
+    if (action === "DeleteItem" && body.Key.pk.S.startsWith("oauth:refresh")) {
+      console.log(`  DeleteItem pk ${show(body.Key.pk.S)}, sk ${show(body.Key.sk.S)}`);
+    }
+    return res;
+  };
+}
+
 await new DynamoDBClient({ endpoint }).send(
   new CreateTableCommand({
     TableName: table,
