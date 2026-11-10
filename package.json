@@ -1,0 +1,14 @@
+{
+  "name": "openauth-dynamo-deletion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db": "docker run --rm -p 8000:8000 amazon/dynamodb-local:3.1.0 -jar DynamoDBLocal.jar -inMemory -sharedDb",
+    "repro": "node repro.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.777.0",
+    "@openauthjs/openauth": "0.4.3",
+    "valibot": "^1.0.0"
+  }
+}
